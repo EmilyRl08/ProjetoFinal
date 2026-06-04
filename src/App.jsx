@@ -37,21 +37,27 @@ export default function App() {
     if (data) setProfile(data);
   }
 
-  const addToCart = (product) => {
+  const addToCart = (product, quantity = 1) => {
     const existing = cart.find(item => item.id === product.id);
     if (existing) {
       if (existing.quantity >= product.stock) {
         alert(`Quantidade limite excedida. Estoque atual: ${product.stock} unidades.`);
         return;
       }
-      setCart(cart.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item));
+      setCart(cart.map(item => item.id === product.id ? { ...item, quantity: item.quantity + quantity } : item));
     } else {
       if (product.stock < 1) {
         alert("Produto sem estoque disponível.");
         return;
       }
-      setCart([...cart, { ...product, quantity: 1 }]);
-    }
+          setCart([
+           ...cart,
+         {
+          ...product,
+         quantity
+        }
+        ]);
+        }
     setIsCartOpen(true);
   };
 

@@ -6,6 +6,7 @@ export default function Products({ addToCart, searchQuery }) {
   const [products, setProducts] = useState([]);
   const [category, setCategory] = useState('Todos');
   const [reviews, setReviews] = useState({});
+  const [quantities, setQuantities] = useState({});
 
   useEffect(() => {
     fetchProducts();
@@ -50,7 +51,19 @@ export default function Products({ addToCart, searchQuery }) {
     const sum = prodReviews.reduce((acc, r) => acc + r.rating, 0);
     return (sum / prodReviews.length).toFixed(1);
   };
+      const increaseQuantity = (id) => {
+       setQuantities(prev => ({
+       ...prev,
+        [id]: (prev[id] || 1) + 1
+        }));
+        };
 
+       const decreaseQuantity = (id) => {
+         setQuantities(prev => ({
+           ...prev,
+        [id]: Math.max(1, (prev[id] || 1) - 1)
+          }));
+        };
   return (
     <div className="page-transition">
       {/* Subheader / Filtros */}
@@ -150,9 +163,33 @@ export default function Products({ addToCart, searchQuery }) {
                 </div>
               </div>
 
+              <div className="flex items-center justify-center gap-4 mb-3">
+  <button
+    onClick={() => decreaseQuantity(product.id)}
+    className="px-3 py-1 border"
+  >
+    -
+  </button>
+
+  <span className="font-medium">
+    {quantities[product.id] || 1}
+  </span>
+
+  <button
+    onClick={() => increaseQuantity(product.id)}
+    className="px-3 py-1 border"
+  >
+    +
+  </button>
+</div>
              {/* Botão de Compra Corrigido Visivelmente */}
-<button 
-  onClick={() => addToCart(product)}
+<button
+  onClick={() =>
+    addToCart(
+      product,
+      quantities[product.id] || 1
+    )
+  }
   disabled={product.stock === 0}
   className="w-full mt-4 bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 hover:bg-sophisticated-primary hover:text-white dark:hover:bg-sophisticated-primary dark:hover:text-white py-2.5 text-xs uppercase tracking-widest font-medium transition-all border-none cursor-pointer disabled:bg-neutral-200 dark:disabled:bg-neutral-800 disabled:text-neutral-400 dark:disabled:text-neutral-600 disabled:cursor-not-allowed"
 >
