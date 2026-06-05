@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { Plus, BarChart2, PackageCheck } from 'lucide-react';
+import { Plus, BarChart2, PackageCheck, Edit2, X } from 'lucide-react';
 
 export default function Admin() {
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [editingProductId, setEditingProductId] = useState(null); // Controla se estamos editando
   
   const [form, setForm] = useState({ 
     title: '', 
@@ -29,11 +30,41 @@ export default function Admin() {
     if (orderRes.data) setOrders(orderRes.data);
   }
 
-  async function handleAddProduct(e) {
+  // 📝 Preenche o formulário com os dados do produto para edição
+  const startEdit = (product) => {
+    setEditingProductId(product.id);
+    setForm({
+      title: product.title || '',
+      description: product.description || '',
+      price: product.price || '',
+      category: product.category || 'Calças',
+      image_url: Array.isArray(product.image_url) ? product.image_url.join(', ') : product.image_url || '',
+      model_photo: product.model_photo || '',
+      model_size: product.model_size || '',
+      stock: product.stock || ''
+    });
+  };
+
+  // ❌ Cancela o modo de edição e limpa o formulário
+  const cancelEdit = () => {
+    setEditingProductId(null);
+    setForm({ 
+      title: '', 
+      description: '', 
+      price: '', 
+      category: 'Calças', 
+      image_url: '', 
+      model_photo: '', 
+      model_size: '', 
+      stock: '' 
+    });
+  };
+
+  async function handleSaveProduct(e) {
     e.preventDefault();
     const imagesArray = form.image_url.split(',').map(url => url.trim()).filter(url => url !== '');
     
-    const { error } = await supabase.from('products').insert([{
+    const productData = {
       title: form.title,
       description: form.description,
       price: parseFloat(form.price),
@@ -42,21 +73,32 @@ export default function Admin() {
       model_photo: form.model_photo,
       model_size: form.model_size,
       stock: parseInt(form.stock)
-    }]);
+    };
 
-    if (!error) {
-      alert("Peça catalogada com sucesso.");
-      setForm({ 
-        title: '', 
-        description: '', 
-        price: '', 
-        category: 'Calças', 
-        image_url: '', 
-        model_photo: '', 
-        model_size: '', 
-        stock: '' 
-      });
-      fetchAdminData();
+    if (editingProductId) {
+      // 🔄 ATUALIZAÇÃO: Se tiver um ID ativo, edita o anúncio existente
+      const { error } = await supabase
+        .from('products')
+        .update([productData])
+        .eq('id', editingProductId);
+
+      if (!error) {
+        alert("Anúncio atualizado com sucesso!");
+        cancelEdit();
+        fetchAdminData();
+      } else {
+        alert("Erro ao atualizar o anúncio.");
+        console.error(error);
+      }
+    } else {
+      // ➕ CADASTRO: Se não tiver ID, cria um anúncio novo
+      const { error } = await supabase.from('products').insert([productData]);
+
+      if (!error) {
+        alert("Peça catalogada com sucesso.");
+        cancelEdit();
+        fetchAdminData();
+      }
     }
   }
 
@@ -94,7 +136,7 @@ export default function Admin() {
         </div>
       </div>
 
-      {/* 📦 Gerenciamento de Pedidos */}
+      {/* Gerenciamento de Pedidos */}
       <div className="bg-white dark:bg-neutral-900 p-6 border border-sophisticated-border">
         <h2 className="text-xs uppercase tracking-widest font-bold text-sophisticated-primary mb-4 flex items-center gap-2"><PackageCheck size={14}/> Despacho e Status de Pedidos</h2>
         <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2">
@@ -130,10 +172,23 @@ export default function Admin() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-        {/* Formulário de Cadastro */}
+        {/* Formulário Interativo (Cadastro / Edição) */}
         <div className="bg-white dark:bg-neutral-900 p-6 border border-sophisticated-border">
-          <h2 className="text-xs uppercase tracking-widest font-bold text-sophisticated-primary mb-4 flex items-center gap-1"><Plus size={14}/> Catalogar Nova Peça</h2>
-          <form onSubmit={handleAddProduct} className="space-y-3">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xs uppercase tracking-widest font-bold text-sophisticated-primary flex items-center gap-1">
+              <Plus size={14}/> {editingProductId ? 'Editar Anúncio da Peça' : 'Catalogar Nova Peça'}
+            </h2>
+            {editingProductId && (
+              <button 
+                onClick={cancelEdit}
+                className="text-red-600 hover:text-red-800 flex items-center gap-1 bg-transparent border-none cursor-pointer font-medium"
+              >
+                <X size={14}/> Cancelar Edição
+              </button>
+            )}
+          </div>
+          
+          <form onSubmit={handleSaveProduct} className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block mb-1">Título do Produto</label>
@@ -155,7 +210,7 @@ export default function Admin() {
               </select>
             </div>
             <div>
-              <label className="block mb-1">Estoque Inicial</label>
+              <label className="block mb-1">Estoque</label>
               <input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} className="w-full border p-2 bg-transparent focus:outline-none" required />
             </div>
             <div>
@@ -176,34 +231,44 @@ export default function Admin() {
               <label className="block mb-1">Descrição Curta Editorial</label>
               <textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="w-full border p-2 h-20 bg-transparent focus:outline-none" required />
             </div>
-            <button type="submit" className="w-full bg-sophisticated-primary text-white py-3 uppercase tracking-widest font-medium text-xs hover:opacity-90 transition">
-              Publicar no Catálogo
+            <button type="submit" className="w-full bg-sophisticated-primary text-white py-3 uppercase tracking-widest font-medium text-xs hover:opacity-90 transition cursor-pointer border-none">
+              {editingProductId ? 'Salvar Alterações no Anúncio' : 'Publicar no Catálogo'}
             </button>
           </form>
         </div>
 
-        {/* Grade de Itens Ativos */}
+        {/* Grade de Itens Ativos com Ação de Editar */}
         <div className="bg-white dark:bg-neutral-900 p-6 border border-sophisticated-border h-[515px] overflow-y-auto">
           <h2 className="text-xs uppercase tracking-widest font-bold mb-4">Grade de Itens Ativos</h2>
           <div className="space-y-3">
             {products.map(p => (
-              <div key={p.id} className="flex justify-between items-center border-b pb-2">
+              <div key={p.id} className="flex justify-between items-center border-b pb-2 gap-4">
                 <div>
                   <p className="font-medium text-sophisticated-text uppercase">{p.title}</p>
                   <p className="text-[10px] text-sophisticated-gray">R$ {parseFloat(p.price || 0).toFixed(2)}</p>
                 </div>
-                {/* 🎨 CORREÇÃO TOTAL APLICADA AQUI ABAIXO */}
-                <div className="text-right">
-                  <span className={`px-2 py-1 font-semibold rounded-xs ${
-                    (p.stock ?? 0) === 0 
-                      ? 'bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-400' 
-                      : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100'
-                  }`}>
-                    Estoque: {p.stock ?? 0}
-                  </span>
+                <div className="flex items-center gap-4">
+                  {/* 🛠️ BOTÃO EDITAR ADICIONADO AQUI */}
+                  <button 
+                    onClick={() => startEdit(p)}
+                    className="p-1 text-sophisticated-gray hover:text-sophisticated-primary dark:hover:text-sophisticated-accent transition bg-transparent border-none cursor-pointer flex items-center gap-1"
+                    title="Editar Anúncio"
+                  >
+                    <Edit2 size={13} /> <span className="text-[10px] uppercase tracking-wider hidden sm:inline">Editar</span>
+                  </button>
+                  <div className="text-right min-w-[85px]">
+                    <span className={`px-2 py-1 font-semibold rounded-xs block text-center ${
+                      (p.stock ?? 0) === 0 
+                        ? 'bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-400' 
+                        : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100'
+                    }`}>
+                      Estoque: {p.stock ?? 0}
+                    </span>
+                  </div>
                 </div>
               </div>
             ))}
+            {products.length === 0 && <p className="text-sophisticated-gray text-center py-8">Nenhum produto cadastrado no catálogo ativo.</p>}
           </div>
         </div>
       </div>
