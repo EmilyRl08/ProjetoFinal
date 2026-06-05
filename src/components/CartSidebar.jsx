@@ -20,56 +20,89 @@ export default function CartSidebar({ isOpen, setIsOpen, cart, setCart, profile,
   };
 
   async function handleCheckout() {
-  if (!user) {
-    alert("Por favor, faça login para concluir a compra.");
-    return;
-  }
-  
-  /* 🛡️ TRAVA DE NEGÓCIO: IMPEDE QUE O ADMIN FINALIZE COMPRAS */
-  if (profile?.is_admin) {
-    alert("Operação recusada. Contas de administração não possuem permissão para realizar compras de estoque.");
-    return;
-  }
+    if (!user) {
+      alert("Por favor, faça login para concluir a compra.");
+      return;
+    }
+    
+    /* 🛡️ TRAVA DE NEGÓCIO: IMPEDE QUE O ADMIN FINALIZE COMPRAS */
+    if (profile?.is_admin) {
+      alert("Operação recusada. Contas de administração não possuem permissão para realizar compras de estoque.");
+      return;
+    }
 
-  if (cart.length === 0) return;
-  if (!address) {
-    alert("O endereço de entrega é mandatório.");
-    return;
-  }
-  
-  // ... restante do código original de checkout (validação de estoque e inserts) ...
+    if (cart.length === 0) return;
+    if (!address) {
+      alert("O endereço de entrega é mandatório.");
+      return;
+    }
 
-    // 1. Validar e atualizar estoque atomizadamente
+    // 1. Validar estoque em tempo real (Sincronizado com a tabela 'products' e a coluna 'stock')
     for (const item of cart) {
-      const { data: currentProduct } = await supabase.from('products').select('stock').eq('id', item.id).single();
-      if (!currentProduct || currentProduct.stock < item.quantity) {
-        alert(`A quantidade solicitada de '${item.title}' excede nosso estoque disponível. Estoque restante: ${currentProduct?.stock || 0} unidades.`);
+      const { data: currentProduct, error: stockErr } = await supabase
+        .from('products')
+        .select('stock')
+        .eq('id', item.id)
+        .single();
+
+      if (stockErr || !currentProduct || (currentProduct.stock ?? 0) < item.quantity) {
+        alert(`A quantidade solicitada de '${item.title || 'este produto'}' excede nosso estoque disponível. Estoque restante: ${currentProduct?.stock ?? 0} unidades.`);
         return;
       }
     }
 
-    // 2. Criar Ordem de Pedido
-    const { data: order, error: orderErr } = await supabase.from('orders').insert([{
-      user_id: user.id,
-      total,
-      address,
-      payment_method: paymentMethod,
-      status: 'Pendente'
-    }]).select().single();
+    // 2. Criar Ordem de Pedido (Sincronizado com as colunas oficiais da sua tabela 'orders')
+    const { data: order, error: orderErr } = await supabase
+      .from('orders')
+      .insert([{
+        user_id: user.id,
+        total: total,
+        address: address,          
+        payment_method: paymentMethod, 
+        status: 'Entregue' 
+      }])
+      .select()
+      .single();
 
-    if (orderErr) return;
+    if (orderErr) {
+      alert(`Erro no banco de dados: ${orderErr.message}`);
+      console.error("Erro detalhado do Supabase:", orderErr);
+      return;
+    }
 
-    // 3. Cadastrar itens da ordem e deduzir estoques
+    // 3. Cadastrar itens da ordem (Sincronizado com as colunas oficiais da sua tabela 'order_items')
     for (const item of cart) {
-      await supabase.from('order_items').insert([{
-        order_id: order.id,
-        product_id: item.id,
-        quantity: item.quantity,
-        price: item.price
-      }]);
+      const { error: itemErr } = await supabase
+        .from('order_items')
+        .insert([{
+          order_id: order.id,
+          product_id: item.id,
+          quantity: item.quantity,
+          price: item.price        
+        }]);
 
-      const { data: currentProduct } = await supabase.from('products').select('stock').eq('id', item.id).single();
-      await supabase.from('products').update({ stock: currentProduct.stock - item.quantity }).eq('id', item.id);
+      if (itemErr) {
+        console.error("Erro ao inserir item do pedido:", itemErr);
+      }
+    }
+
+    // 🔥 4. Atualizar o estoque na tabela 'products' via Frontend (Opção A)
+    for (const item of cart) {
+      const { data: prod } = await supabase
+        .from('products')
+        .select('stock')
+        .eq('id', item.id)
+        .single();
+
+      if (prod) {
+        // Reduz a quantidade garantindo que o estoque nunca fique negativo (mínimo 0)
+        const novoEstoque = Math.max(0, (prod.stock ?? 0) - item.quantity);
+        
+        await supabase
+          .from('products')
+          .update({ stock: novoEstoque })
+          .eq('id', item.id);
+      }
     }
 
     alert(`Pedido finalizado com sucesso! O valor da compra foi processado. Separando itens.`);
@@ -94,7 +127,7 @@ export default function CartSidebar({ isOpen, setIsOpen, cart, setCart, profile,
               {cart.map(item => (
                 <div key={item.id} className="flex justify-between items-center border-b pb-3">
                   <div>
-                    <p className="font-medium uppercase">{item.title}</p>
+                    <p className="font-medium uppercase">{item.title || item.nome}</p>
                     <p className="text-sophisticated-gray">Qtd: {item.quantity} x R$ {parseFloat(item.price).toFixed(2)}</p>
                   </div>
                   <button onClick={() => setCart(cart.filter(i => i.id !== item.id))} className="text-neutral-300 hover:text-red-700 transition">
@@ -136,7 +169,7 @@ export default function CartSidebar({ isOpen, setIsOpen, cart, setCart, profile,
               </div>
 
               <button onClick={handleCheckout} className="w-full bg-sophisticated-primary text-white py-3 uppercase tracking-widest font-medium hover:opacity-90 transition">
-                Finalizar Compra
+                Finalizar Emissão de Pedido
               </button>
             </div>
           )}

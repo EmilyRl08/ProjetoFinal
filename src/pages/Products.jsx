@@ -7,6 +7,9 @@ export default function Products({ addToCart, searchQuery }) {
   const [category, setCategory] = useState('Todos');
   const [reviews, setReviews] = useState({});
 
+  // Imagem reserva (Fallback oficial) caso algum link do banco quebre completamente
+  const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=600';
+
   useEffect(() => {
     fetchProducts();
     fetchReviews();
@@ -18,7 +21,8 @@ export default function Products({ addToCart, searchQuery }) {
     
     const { data } = await query;
     if (data) {
-      const filtered = data.filter(p => p.title.toLowerCase().includes(searchQuery.toLowerCase()));
+      const termoBusca = (searchQuery || '').toLowerCase();
+      const filtered = data.filter(p => (p.title || '').toLowerCase().includes(termoBusca));
       setProducts(filtered);
     }
   }
@@ -47,8 +51,33 @@ export default function Products({ addToCart, searchQuery }) {
   const getAverageRating = (productId) => {
     const prodReviews = reviews[productId];
     if (!prodReviews || prodReviews.length === 0) return 0;
-    const sum = prodReviews.reduce((acc, r) => acc + r.rating, 0);
+    const sum = prodReviews.reduce((acc, r) => acc + (r.rating || 0), 0);
     return (sum / prodReviews.length).toFixed(1);
+  };
+
+  // 🔍 FUNÇÃO AUXILIAR: Decodifica arrays, strings e links complexos do Google Imagens
+  const tratarLinkImagem = (campoBanco) => {
+    if (!campoBanco) return '';
+    
+    let linkLimpo = '';
+    if (Array.isArray(campoBanco) && campoBanco.length > 0) {
+      linkLimpo = campoBanco[0];
+    } else if (typeof campoBanco === 'string') {
+      linkLimpo = campoBanco.replace(/[\[\]"'{}]/g, '').split(',')[0].trim();
+    }
+
+    if (linkLimpo.includes('google.com/imgres')) {
+      try {
+        const urlParams = new URLSearchParams(linkLimpo.substring(linkLimpo.indexOf('?')));
+        const linkEscondido = urlParams.get('imgurl');
+        if (linkEscondido) {
+          linkLimpo = decodeURIComponent(linkEscondido);
+        }
+      } catch (err) {
+        console.error("Erro ao decodificar link do Google:", err);
+      }
+    }
+    return linkLimpo;
   };
 
   return (
@@ -56,7 +85,7 @@ export default function Products({ addToCart, searchQuery }) {
       {/* Subheader / Filtros */}
       <div className="border-b border-sophisticated-border pb-6 mb-10 flex flex-wrap gap-6 items-center justify-between">
         <div className="flex gap-4 overflow-x-auto text-xs uppercase tracking-widest font-medium">
-          {['Todos', 'Alfaiataria', 'Vestidos', 'Casacos', 'Acessórios'].map((cat) => (
+          {['Todos', 'Calças', 'Vestidos', 'Casacos', 'Acessórios', 'Blusas'].map((cat) => (
             <button 
               key={cat} 
               onClick={() => setCategory(cat)}
@@ -76,36 +105,35 @@ export default function Products({ addToCart, searchQuery }) {
         {products.map((product) => {
           const avgRating = getAverageRating(product.id);
           
-          // Trata o link da imagem (evita erros caso o banco salve como string ou array)
-          let primaryImage = 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=600';
-          if (product.image_url) {
-            if (Array.isArray(product.image_url) && product.image_url.length > 0) {
-              primaryImage = product.image_url[0];
-            } else if (typeof product.image_url === 'string') {
-              primaryImage = product.image_url.replace(/[{}"']/g, '').split(',')[0].trim();
-            }
-          }
+          // Processa as duas imagens usando o nosso motor de tratamento robusto
+          const primaryImage = tratarLinkImagem(product.image_url) || FALLBACK_IMAGE;
+          const hoverImage = tratarLinkImagem(product.model_photo);
+
+          const esgotado = (product.stock ?? 10) <= 0;
 
           return (
             <div key={product.id} className="group relative flex flex-col justify-between h-full">
               <div>
                 {/* Imagens Alternáveis (Capa e Modelo) */}
                 <div className="relative aspect-[3/4] overflow-hidden bg-neutral-100 dark:bg-neutral-800 mb-4 rounded-sm">
+                  {/* 1. Capa Principal */}
                   <img 
                     src={primaryImage} 
                     alt={product.title} 
                     className="w-full h-full object-cover transition-opacity duration-500 group-hover:opacity-0"
                     onError={(e) => {
-                      e.target.src = 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=600';
+                      e.target.src = FALLBACK_IMAGE; // Aplica o fallback se o link quebrar em tempo de execução
                     }}
                   />
-                  {product.model_photo && (
+                  
+                  {/* 2. Modelo no Hover (Agora decodifica Google Imagens perfeitamente também) */}
+                  {hoverImage && (
                     <img 
-                      src={product.model_photo.trim()} 
+                      src={hoverImage} 
                       alt="Modelo demonstrativa" 
                       className="absolute inset-0 w-full h-full object-cover opacity-0 transition-opacity duration-500 group-hover:opacity-100"
                       onError={(e) => { 
-                        e.target.style.display = 'none'; 
+                        e.target.style.display = 'none'; // Se falhar, oculta o hover suavemente
                       }}
                     />
                   )}
@@ -116,7 +144,7 @@ export default function Products({ addToCart, searchQuery }) {
                     </div>
                   )}
                   
-                  {product.stock === 0 && (
+                  {esgotado && (
                     <div className="absolute inset-0 bg-white/80 dark:bg-black/80 flex items-center justify-center text-xs uppercase tracking-widest font-medium text-sophisticated-primary z-10">
                       Esgotado
                     </div>
@@ -124,24 +152,27 @@ export default function Products({ addToCart, searchQuery }) {
                 </div>
 
                 {/* Título e Preço */}
-<div className="flex justify-between items-start mb-1 text-sophisticated-text">
-  <h3 className="text-xs font-medium tracking-wide uppercase group-hover:text-sophisticated-primary transition">{product.title}</h3>
-  <span className="text-xs tracking-wider font-semibold">R$ {parseFloat(product.price).toFixed(2)}</span>
-</div>
+                <div className="flex justify-between items-start mb-1 text-sophisticated-text">
+                  <h3 className="text-xs font-medium tracking-wide uppercase group-hover:text-sophisticated-primary transition">{product.title}</h3>
+                  <span className="text-xs tracking-wider font-semibold">R$ {parseFloat(product.price || 0).toFixed(2)}</span>
+                </div>
 
-{/* 📝 ADICIONADO: Descrição Curta Editorial do Produto */}
-{product.description && (
-  <p className="text-[11px] text-sophisticated-gray tracking-wide mb-2 line-clamp-2 italic">
-    {product.description}
-  </p>
-)}
+                {/* Descrição Curta Editorial */}
+                {product.description && (
+                  <p className="text-[11px] text-sophisticated-gray tracking-wide mb-2 line-clamp-2 italic">
+                    {product.description}
+                  </p>
+                )}
 
-{/* Detalhes de tamanho da modelo */}
-{product.model_size && (
-  <p className="text-[11px] text-sophisticated-gray tracking-wide mb-1">Modelo veste tamanho: {product.model_size}</p>
-)}
+                {/* Detalhes de tamanho da modelo */}
+                {product.model_size && (
+                  <p className="text-[11px] text-sophisticated-gray tracking-wide mb-1">Modelo veste tamanho: {product.model_size}</p>
+                )}
 
-          
+                {/* Quantidade em estoque em tempo real */}
+                <p className={`text-[11px] tracking-wide mb-1 ${esgotado ? 'text-red-600' : 'text-sophisticated-gray'}`}>
+                  {esgotado ? 'Item indisponível no momento' : `Disponível: ${product.stock ?? 0} un.`}
+                </p>
 
                 {/* Avaliação por Estrelas */}
                 <div className="flex items-center gap-1 text-[11px] text-sophisticated-gray mb-3">
@@ -150,14 +181,14 @@ export default function Products({ addToCart, searchQuery }) {
                 </div>
               </div>
 
-             {/* Botão de Compra Corrigido Visivelmente */}
-<button 
-  onClick={() => addToCart(product)}
-  disabled={product.stock === 0}
-  className="w-full mt-4 bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 hover:bg-sophisticated-primary hover:text-white dark:hover:bg-sophisticated-primary dark:hover:text-white py-2.5 text-xs uppercase tracking-widest font-medium transition-all border-none cursor-pointer disabled:bg-neutral-200 dark:disabled:bg-neutral-800 disabled:text-neutral-400 dark:disabled:text-neutral-600 disabled:cursor-not-allowed"
->
-  {product.stock === 0 ? 'Indisponível' : 'Adicionar à Sacola'}
-</button>
+              {/* Botão de Compra */}
+              <button 
+                onClick={() => addToCart(product)}
+                disabled={esgotado}
+                className="w-full mt-4 bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 hover:bg-sophisticated-primary hover:text-white dark:hover:bg-sophisticated-primary dark:hover:text-white py-2.5 text-xs uppercase tracking-widest font-medium transition-all border-none cursor-pointer disabled:bg-neutral-200 dark:disabled:bg-neutral-800 disabled:text-neutral-400 dark:disabled:text-neutral-600 disabled:cursor-not-allowed"
+              >
+                {esgotado ? 'Indisponível' : 'Adicionar à Sacola'}
+              </button>
             </div>
           );
         })}
