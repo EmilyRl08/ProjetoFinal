@@ -4,7 +4,7 @@ import { ArrowRight } from 'lucide-react';
 const bannerAds = [
   { id: 1, title: "Coleção Atemporal de Inverno", subtitle: "Cortes minimalistas com tecidos nobres premium.", bg: "bg-neutral-950 text-white" },
   { id: 2, title: "Alfaiataria Desconstruída", subtitle: "Elegância e modernidade fluida para o cotidiano.", bg: "bg-sophisticated-primary text-white" },
-  { id: 3, title: "Seda & Linho Puro", subtitle: "Texturas orgânicas feitas para durar gerações.", bg: "bg-neutral-100 text-sophisticated-text" }
+  { id: 3, title: "Seda & Linho Puro", subtitle: "Texturas orgânicas feitas para durar gerações.", bg: "bg-neutral-100 text-black" }
 ];
 
 export default function Home({ addToCart, setCurrentTab }) {

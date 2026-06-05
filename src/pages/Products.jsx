@@ -6,6 +6,7 @@ export default function Products({ addToCart, searchQuery }) {
   const [products, setProducts] = useState([]);
   const [category, setCategory] = useState('Todos');
   const [reviews, setReviews] = useState({});
+  const [quantities, setQuantities] = useState({});
 
   // Imagem reserva (Fallback oficial) caso algum link do banco quebre completamente
   const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=600';
@@ -53,6 +54,22 @@ export default function Products({ addToCart, searchQuery }) {
     if (!prodReviews || prodReviews.length === 0) return 0;
     const sum = prodReviews.reduce((acc, r) => acc + (r.rating || 0), 0);
     return (sum / prodReviews.length).toFixed(1);
+  };
+
+  const increaseQuantity = (id, maxStock) => {
+    setQuantities(prev => {
+      const current = prev[id] || 1;
+      // Impede que adicione no seletor mais do que o estoque disponível real
+      if (current >= maxStock) return prev;
+      return { ...prev, [id]: current + 1 };
+    });
+  };
+
+  const decreaseQuantity = (id) => {
+    setQuantities(prev => ({
+      ...prev,
+      [id]: Math.max(1, (prev[id] || 1) - 1)
+    }));
   };
 
   // 🔍 FUNÇÃO AUXILIAR: Decodifica arrays, strings e links complexos do Google Imagens
@@ -105,11 +122,12 @@ export default function Products({ addToCart, searchQuery }) {
         {products.map((product) => {
           const avgRating = getAverageRating(product.id);
           
-          // Processa as duas imagens usando o nosso motor de tratamento robusto
           const primaryImage = tratarLinkImagem(product.image_url) || FALLBACK_IMAGE;
           const hoverImage = tratarLinkImagem(product.model_photo);
 
-          const esgotado = (product.stock ?? 10) <= 0;
+          const stockDisponivel = product.stock ?? 10;
+          const esgotado = stockDisponivel <= 0;
+          const qtdSelecionada = quantities[product.id] || 1;
 
           return (
             <div key={product.id} className="group relative flex flex-col justify-between h-full">
@@ -122,25 +140,25 @@ export default function Products({ addToCart, searchQuery }) {
                     alt={product.title} 
                     className="w-full h-full object-cover transition-opacity duration-500 group-hover:opacity-0"
                     onError={(e) => {
-                      e.target.src = FALLBACK_IMAGE; // Aplica o fallback se o link quebrar em tempo de execução
+                      e.target.src = FALLBACK_IMAGE;
                     }}
                   />
                   
-                  {/* 2. Modelo no Hover (Agora decodifica Google Imagens perfeitamente também) */}
+                  {/* 2. Modelo no Hover */}
                   {hoverImage && (
                     <img 
                       src={hoverImage} 
                       alt="Modelo demonstrativa" 
                       className="absolute inset-0 w-full h-full object-cover opacity-0 transition-opacity duration-500 group-hover:opacity-100"
                       onError={(e) => { 
-                        e.target.style.display = 'none'; // Se falhar, oculta o hover suavemente
+                        e.target.style.display = 'none'; 
                       }}
                     />
                   )}
                   
-                  {product.stock <= 3 && product.stock > 0 && (
+                  {stockDisponivel <= 3 && stockDisponivel > 0 && (
                     <div className="absolute top-2 left-2 bg-sophisticated-accent text-white text-[10px] uppercase tracking-widest px-2 py-1 font-medium flex items-center gap-1 z-10">
-                      <ShieldAlert size={10} /> Últimas {product.stock} peças
+                      <ShieldAlert size={10} /> Últimas {stockDisponivel} peças
                     </div>
                   )}
                   
@@ -171,7 +189,7 @@ export default function Products({ addToCart, searchQuery }) {
 
                 {/* Quantidade em estoque em tempo real */}
                 <p className={`text-[11px] tracking-wide mb-1 ${esgotado ? 'text-red-600' : 'text-sophisticated-gray'}`}>
-                  {esgotado ? 'Item indisponível no momento' : `Disponível: ${product.stock ?? 0} un.`}
+                  {esgotado ? 'Item indisponível no momento' : `Disponível: ${stockDisponivel} un.`}
                 </p>
 
                 {/* Avaliação por Estrelas */}
@@ -181,11 +199,32 @@ export default function Products({ addToCart, searchQuery }) {
                 </div>
               </div>
 
+              {/* Seletor de Quantidade (Apenas visível se houver estoque) */}
+              {!esgotado && (
+                <div className="flex items-center justify-center gap-4 mb-2 mt-2 text-xs">
+                  <button
+                    onClick={() => decreaseQuantity(product.id)}
+                    className="w-7 h-7 flex items-center justify-center border border-neutral-200 hover:border-neutral-900 dark:hover:border-white transition bg-transparent cursor-pointer"
+                  >
+                    -
+                  </button>
+                  <span className="font-medium min-w-[16px] text-center">
+                    {qtdSelecionada}
+                  </span>
+                  <button
+                    onClick={() => increaseQuantity(product.id, stockDisponivel)}
+                    className="w-7 h-7 flex items-center justify-center border border-neutral-200 hover:border-neutral-900 dark:hover:border-white transition bg-transparent cursor-pointer"
+                  >
+                    +
+                  </button>
+                </div>
+              )}
+
               {/* Botão de Compra */}
               <button 
-                onClick={() => addToCart(product)}
+                onClick={() => addToCart(product, qtdSelecionada)}
                 disabled={esgotado}
-                className="w-full mt-4 bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 hover:bg-sophisticated-primary hover:text-white dark:hover:bg-sophisticated-primary dark:hover:text-white py-2.5 text-xs uppercase tracking-widest font-medium transition-all border-none cursor-pointer disabled:bg-neutral-200 dark:disabled:bg-neutral-800 disabled:text-neutral-400 dark:disabled:text-neutral-600 disabled:cursor-not-allowed"
+                className="w-full mt-2 bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 hover:bg-sophisticated-primary hover:text-white dark:hover:bg-sophisticated-primary dark:hover:text-white py-2.5 text-xs uppercase tracking-widest font-medium transition-all border-none cursor-pointer disabled:bg-neutral-200 dark:disabled:bg-neutral-800 disabled:text-neutral-400 dark:disabled:text-neutral-600 disabled:cursor-not-allowed"
               >
                 {esgotado ? 'Indisponível' : 'Adicionar à Sacola'}
               </button>
