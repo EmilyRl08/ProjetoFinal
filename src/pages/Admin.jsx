@@ -5,7 +5,18 @@ import { Plus, BarChart2, PackageCheck } from 'lucide-react';
 export default function Admin() {
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
-  const [form, setForm] = useState({ title: '', description: '', price: '', category: 'Alfaiataria', image_url: '', model_photo: '', model_size: '', stock: '' });
+  
+  // Ajustado o estado inicial da categoria padrão para 'Calças' para bater com suas novas opções
+  const [form, setForm] = useState({ 
+    title: '', 
+    description: '', 
+    price: '', 
+    category: 'Calças', 
+    image_url: '', 
+    model_photo: '', 
+    model_size: '', 
+    stock: '' 
+  });
 
   useEffect(() => {
     fetchAdminData();
@@ -37,7 +48,17 @@ export default function Admin() {
 
     if (!error) {
       alert("Peça catalogada com sucesso.");
-      setForm({ title: '', description: '', price: '', category: 'Alfaiataria', image_url: '', model_photo: '', model_size: '', stock: '' });
+      // Limpa o formulário mantendo a categoria padrão inicial 'Calças' correta
+      setForm({ 
+        title: '', 
+        description: '', 
+        price: '', 
+        category: 'Calças', 
+        image_url: '', 
+        model_photo: '', 
+        model_size: '', 
+        stock: '' 
+      });
       fetchAdminData();
     }
   }
@@ -54,7 +75,7 @@ export default function Admin() {
   }
 
   const totalFaturamento = orders.reduce((acc, curr) => acc + parseFloat(curr.total), 0);
-  const totalPecasVendidas = orders.flatMap(o => o.order_items).reduce((acc, curr) => acc + curr.quantity, 0);
+  const totalPecasVendidas = orders.flatMap(o => o.order_items || []).reduce((acc, curr) => acc + (curr.quantity || 0), 0);
 
   return (
     <div className="space-y-12 text-xs page-transition">
@@ -71,13 +92,13 @@ export default function Admin() {
             <span className="text-[10px] tracking-widest uppercase opacity-70">Peças Despachadas</span>
           </div>
           <div className="border-l border-sophisticated-accent pl-4">
-            <span className="block text-2xl font-light">{products.reduce((acc,p) => acc + p.stock, 0)}</span>
+            <span className="block text-2xl font-light">{products.reduce((acc,p) => acc + (p.stock || 0), 0)}</span>
             <span className="text-[10px] tracking-widest uppercase opacity-70">Itens em Estoque Global</span>
           </div>
         </div>
       </div>
 
-      {/* 📦 NOVO CONTROLE: Gerenciamento Flutuante de Pedidos dos Clientes */}
+      {/* 📦 Gerenciamento de Pedidos dos Clientes */}
       <div className="bg-white dark:bg-neutral-900 p-6 border border-sophisticated-border">
         <h2 className="text-xs uppercase tracking-widest font-bold text-sophisticated-primary mb-4 flex items-center gap-2"><PackageCheck size={14}/> Despacho e Status de Pedidos</h2>
         <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2">
@@ -90,7 +111,7 @@ export default function Admin() {
                     <span key={item.id} className="block">{item.products?.title} (x{item.quantity})</span>
                   ))}
                 </div>
-                <p className="mt-2 font-medium">Total: R$ {parseFloat(order.total).toFixed(2)}</p>
+                <p className="mt-2 font-medium">Total: R$ {parseFloat(order.total || 0).toFixed(2)}</p>
               </div>
               <div className="flex items-center gap-3">
                 <span className={`uppercase font-bold text-[10px] tracking-wider px-2 py-1 ${order.status === 'Entregue' ? 'bg-green-50 text-green-800' : order.status === 'Devolvido' ? 'bg-red-50 text-red-800' : 'bg-amber-50 text-amber-800'}`}>
@@ -130,10 +151,11 @@ export default function Admin() {
             <div>
               <label className="block mb-1">Categoria</label>
               <select value={form.category} onChange={e => setForm({...form, category: e.target.value})} className="w-full border p-2 bg-white dark:bg-neutral-800 focus:outline-none">
-                <option value="Alfaiataria">Alfaiataria</option>
+                <option value="Calças">Calças</option>
                 <option value="Vestidos">Vestidos</option>
                 <option value="Casacos">Casacos</option>
                 <option value="Acessórios">Acessórios</option>
+                <option value="Blusas">Blusas</option>
               </select>
             </div>
             <div>
@@ -172,7 +194,7 @@ export default function Admin() {
               <div key={p.id} className="flex justify-between items-center border-b pb-2">
                 <div>
                   <p className="font-medium text-sophisticated-text uppercase">{p.title}</p>
-                  <p className="text-[10px] text-sophisticated-gray">R$ {parseFloat(p.price).toFixed(2)}</p>
+                  <p className="text-[10px] text-sophisticated-gray">R$ {parseFloat(p.price || 0).toFixed(2)}</p>
                 </div>
                 <div className="text-right">
                   <span className={`px-2 py-1 font-semibold ${p.stock === 0 ? 'bg-red-50 text-red-800' : 'bg-neutral-100 dark:bg-neutral-800 text-sophisticated-text'}`}>
