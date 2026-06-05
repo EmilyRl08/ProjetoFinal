@@ -6,7 +6,6 @@ export default function Admin() {
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
   
-  // Ajustado o estado inicial da categoria padrão para 'Calças' para bater com suas novas opções
   const [form, setForm] = useState({ 
     title: '', 
     description: '', 
@@ -26,7 +25,6 @@ export default function Admin() {
     const prodRes = await supabase.from('products').select('*');
     if (prodRes.data) setProducts(prodRes.data);
 
-    // Busca ordens com e-mail do perfil comprador e itens vinculados
     const orderRes = await supabase.from('orders').select('*, profiles(email), order_items(*, products(*))');
     if (orderRes.data) setOrders(orderRes.data);
   }
@@ -48,7 +46,6 @@ export default function Admin() {
 
     if (!error) {
       alert("Peça catalogada com sucesso.");
-      // Limpa o formulário mantendo a categoria padrão inicial 'Calças' correta
       setForm({ 
         title: '', 
         description: '', 
@@ -63,12 +60,11 @@ export default function Admin() {
     }
   }
 
-  /* 🚚 FUNÇÃO DO ADMIN PARA ALTERAR STATUS DO PEDIDO DO CLIENTE */
   async function handleUpdateOrderStatus(orderId, newStatus) {
     const { error } = await supabase.from('orders').update({ status: newStatus }).eq('id', orderId);
     if (!error) {
       alert(`Pedido atualizado para: ${newStatus}`);
-      fetchAdminData(); // Atualiza a tela imediatamente
+      fetchAdminData(); 
     } else {
       alert("Erro ao atualizar status.");
     }
@@ -98,7 +94,7 @@ export default function Admin() {
         </div>
       </div>
 
-      {/* 📦 Gerenciamento de Pedidos dos Clientes */}
+      {/* 📦 Gerenciamento de Pedidos */}
       <div className="bg-white dark:bg-neutral-900 p-6 border border-sophisticated-border">
         <h2 className="text-xs uppercase tracking-widest font-bold text-sophisticated-primary mb-4 flex items-center gap-2"><PackageCheck size={14}/> Despacho e Status de Pedidos</h2>
         <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2">
@@ -196,9 +192,14 @@ export default function Admin() {
                   <p className="font-medium text-sophisticated-text uppercase">{p.title}</p>
                   <p className="text-[10px] text-sophisticated-gray">R$ {parseFloat(p.price || 0).toFixed(2)}</p>
                 </div>
+                {/* 🎨 CORREÇÃO TOTAL APLICADA AQUI ABAIXO */}
                 <div className="text-right">
-                  <span className={`px-2 py-1 font-semibold ${p.stock === 0 ? 'bg-red-50 text-red-800' : 'bg-neutral-100 dark:bg-neutral-800 text-sophisticated-text'}`}>
-                    Estoque: {p.stock}
+                  <span className={`px-2 py-1 font-semibold rounded-xs ${
+                    (p.stock ?? 0) === 0 
+                      ? 'bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-400' 
+                      : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100'
+                  }`}>
+                    Estoque: {p.stock ?? 0}
                   </span>
                 </div>
               </div>
