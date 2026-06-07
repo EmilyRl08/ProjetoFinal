@@ -59,7 +59,7 @@ export default function CartSidebar({ isOpen, setIsOpen, cart, setCart, profile,
         total: total,
         address: address,          
         payment_method: paymentMethod, 
-        status: 'Entregue' 
+        status: 'Pendente' // 🌟 CORRIGIDO: Agora nasce como Pendente para o Admin despachar no painel!
       }])
       .select()
       .single();
@@ -115,22 +115,24 @@ export default function CartSidebar({ isOpen, setIsOpen, cart, setCart, profile,
       <div className="absolute inset-0 bg-black/40 backdrop-blur-xs transition-opacity" onClick={() => setIsOpen(false)} />
       
       <div className="absolute inset-y-0 right-0 max-w-full flex pl-10">
-        <div className="w-screen max-w-md bg-white p-6 flex flex-col justify-between shadow-xl">
+        <div className="w-screen max-w-md bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 p-6 flex flex-col justify-between shadow-xl border-l border-transparent dark:border-neutral-800">
           <div>
-            <div className="flex items-center justify-between border-b pb-4 mb-4">
+            <div className="flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800 pb-4 mb-4">
               <h2 className="text-xs uppercase tracking-widest font-bold">Minha Sacola</h2>
-              <button onClick={() => setIsOpen(false)} className="text-sophisticated-gray hover:text-sophisticated-text"><X size={18}/></button>
+              <button onClick={() => setIsOpen(false)} className="bg-transparent border-none cursor-pointer text-sophisticated-gray hover:text-sophisticated-text dark:hover:text-white">
+                <X size={18}/>
+              </button>
             </div>
 
             {/* Listagem dos Itens */}
             <div className="space-y-4 max-h-[250px] overflow-y-auto pr-2">
               {cart.map(item => (
-                <div key={item.id} className="flex justify-between items-center border-b pb-3">
+                <div key={item.id} className="flex justify-between items-center border-b border-neutral-150 dark:border-neutral-800 pb-3">
                   <div>
                     <p className="font-medium uppercase">{item.title || item.nome}</p>
                     <p className="text-sophisticated-gray">Qtd: {item.quantity} x R$ {parseFloat(item.price).toFixed(2)}</p>
                   </div>
-                  <button onClick={() => setCart(cart.filter(i => i.id !== item.id))} className="text-neutral-300 hover:text-red-700 transition">
+                  <button onClick={() => setCart(cart.filter(i => i.id !== item.id))} className="bg-transparent border-none cursor-pointer text-neutral-300 dark:text-neutral-600 hover:text-red-700 dark:hover:text-red-500 transition">
                     <Trash2 size={14} />
                   </button>
                 </div>
@@ -141,9 +143,9 @@ export default function CartSidebar({ isOpen, setIsOpen, cart, setCart, profile,
 
           {/* Dados de Envio e Pagamento */}
           {cart.length > 0 && (
-            <div className="border-t pt-4 space-y-4">
+            <div className="border-t border-neutral-200 dark:border-neutral-800 pt-4 space-y-4">
               {profile && (
-                <label className="flex items-center gap-2 text-[11px] text-sophisticated-gray">
+                <label className="flex items-center gap-2 text-[11px] text-sophisticated-gray cursor-pointer">
                   <input type="checkbox" checked={useSavedData} onChange={handleToggleSavedData} className="accent-sophisticated-primary" />
                   Utilizar mesmo endereço/pagamento salvo na conta
                 </label>
@@ -151,24 +153,37 @@ export default function CartSidebar({ isOpen, setIsOpen, cart, setCart, profile,
               
               <div>
                 <label className="block mb-1 font-medium uppercase tracking-wider">Endereço para Entrega</label>
-                <input type="text" value={address} onChange={e => setAddress(e.target.value)} disabled={useSavedData} className="w-full border p-2 focus:outline-none focus:border-sophisticated-primary bg-transparent" placeholder="Rua, Número, Bairro, Cidade" required />
+                <input 
+                  type="text" 
+                  value={address} 
+                  onChange={e => setAddress(e.target.value)} 
+                  disabled={useSavedData} 
+                  className="w-full border border-neutral-200 dark:border-neutral-800 p-2 focus:outline-none focus:border-sophisticated-primary bg-transparent disabled:opacity-50" 
+                  placeholder="Rua, Número, Bairro, Cidade" 
+                  required 
+                />
               </div>
 
               <div>
                 <label className="block mb-1 font-medium uppercase tracking-wider">Método de Pagamento</label>
-                <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} disabled={useSavedData} className="w-full border p-2 bg-white focus:outline-none">
+                <select 
+                  value={paymentMethod} 
+                  onChange={e => setPaymentMethod(e.target.value)} 
+                  disabled={useSavedData} 
+                  className="w-full border border-neutral-200 dark:border-neutral-800 p-2 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white focus:outline-none disabled:opacity-50"
+                >
                   <option value="Cartão de Crédito">Cartão de Crédito</option>
                   <option value="Pix">Pix</option>
                   <option value="Boleto Bancário">Boleto Bancário</option>
                 </select>
               </div>
 
-              <div className="flex justify-between font-bold text-sm border-t pt-3">
+              <div className="flex justify-between font-bold text-sm border-t border-neutral-200 dark:border-neutral-800 pt-3">
                 <span className="uppercase tracking-widest font-normal text-xs">Total Estimado</span>
                 <span>R$ {total.toFixed(2)}</span>
               </div>
 
-              <button onClick={handleCheckout} className="w-full bg-sophisticated-primary text-white py-3 uppercase tracking-widest font-medium hover:opacity-90 transition">
+              <button onClick={handleCheckout} className="w-full bg-sophisticated-primary text-white py-3 uppercase tracking-widest font-medium hover:opacity-90 transition cursor-pointer border-none">
                 Finalizar Emissão de Pedido
               </button>
             </div>
