@@ -87,6 +87,7 @@ body {
 .page-transition {
   animation: var(--animate-fade-slide);
 }
+/* Css arrumado */
 /* ==========================================================================
    🌙 MODO ESCURO COMPATÍVEL COM TAILWIND v4 
    ========================================================================== */
