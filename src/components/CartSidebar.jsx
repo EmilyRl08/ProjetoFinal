@@ -71,6 +71,7 @@ export default function CartSidebar({ isOpen, setIsOpen, cart, setCart, profile,
     }
 
     // 3. Cadastrar itens da ordem (Sincronizado com as colunas oficiais da sua tabela 'order_items')
+  // 3. Cadastrar itens da ordem (Sincronizado com as colunas oficiais da sua tabela 'order_items')
     for (const item of cart) {
       const { error: itemErr } = await supabase
         .from('order_items')
@@ -78,7 +79,8 @@ export default function CartSidebar({ isOpen, setIsOpen, cart, setCart, profile,
           order_id: order.id,
           product_id: item.id,
           quantity: item.quantity,
-          price: item.price        
+          price: item.price,
+          size: item.selected_size // 🌟 NOVO: Salva o tamanho escolhido pelo cliente no banco!
         }]);
 
       if (itemErr) {

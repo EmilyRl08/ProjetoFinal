@@ -5,7 +5,7 @@ import { Plus, BarChart2, PackageCheck, Edit2, X } from 'lucide-react';
 export default function Admin() {
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
-  const [editingProductId, setEditingProductId] = useState(null); // Controla se estamos editando
+  const [editingProductId, setEditingProductId] = useState(null); 
   
   const [form, setForm] = useState({ 
     title: '', 
@@ -15,6 +15,7 @@ export default function Admin() {
     image_url: '', 
     model_photo: '', 
     model_size: '', 
+    sizes: '', // Grade de tamanhos em string para o input
     stock: '' 
   });
 
@@ -23,14 +24,17 @@ export default function Admin() {
   }, []);
 
   async function fetchAdminData() {
+    // 1. Busca todos os produtos do catálogo para listar na grade
     const prodRes = await supabase.from('products').select('*');
     if (prodRes.data) setProducts(prodRes.data);
 
-    const orderRes = await supabase.from('orders').select('*, profiles(email), order_items(*, products(*))');
+    // 2. Busca os pedidos com e-mail do cliente e os itens com tamanho selecionado
+    const orderRes = await supabase
+      .from('orders')
+      .select('*, profiles(email), order_items(*, products(*))');
     if (orderRes.data) setOrders(orderRes.data);
   }
 
-  // 📝 Preenche o formulário com os dados do produto para edição
   const startEdit = (product) => {
     setEditingProductId(product.id);
     setForm({
@@ -41,11 +45,11 @@ export default function Admin() {
       image_url: Array.isArray(product.image_url) ? product.image_url.join(', ') : product.image_url || '',
       model_photo: product.model_photo || '',
       model_size: product.model_size || '',
+      sizes: Array.isArray(product.sizes) ? product.sizes.join(', ') : product.sizes || '', 
       stock: product.stock || ''
     });
   };
 
-  // ❌ Cancela o modo de edição e limpa o formulário
   const cancelEdit = () => {
     setEditingProductId(null);
     setForm({ 
@@ -56,6 +60,7 @@ export default function Admin() {
       image_url: '', 
       model_photo: '', 
       model_size: '', 
+      sizes: '', 
       stock: '' 
     });
   };
@@ -63,6 +68,7 @@ export default function Admin() {
   async function handleSaveProduct(e) {
     e.preventDefault();
     const imagesArray = form.image_url.split(',').map(url => url.trim()).filter(url => url !== '');
+    const sizesArray = form.sizes.split(',').map(s => s.trim().toUpperCase()).filter(s => s !== '');
     
     const productData = {
       title: form.title,
@@ -72,26 +78,24 @@ export default function Admin() {
       image_url: imagesArray,
       model_photo: form.model_photo,
       model_size: form.model_size,
+      sizes: sizesArray, 
       stock: parseInt(form.stock)
     };
 
     if (editingProductId) {
-      // 🔄 ATUALIZAÇÃO: Se tiver um ID ativo, edita o anúncio existente
       const { error } = await supabase
         .from('products')
         .update([productData])
         .eq('id', editingProductId);
 
       if (!error) {
-        alert("Anúncio atualizado com sucesso!");
+        alert("Anúncio updated com sucesso!");
         cancelEdit();
         fetchAdminData();
       } else {
         alert("Erro ao atualizar o anúncio.");
-        console.error(error);
       }
     } else {
-      // ➕ CADASTRO: Se não tiver ID, cria um anúncio novo
       const { error } = await supabase.from('products').insert([productData]);
 
       if (!error) {
@@ -144,9 +148,13 @@ export default function Admin() {
             <div key={order.id} className="border border-sophisticated-border p-4 rounded-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-sophisticated-text">
               <div>
                 <p className="font-semibold">Pedido: #{order.id.slice(0,8)} - Cliente: <span className="font-normal opacity-80">{order.profiles?.email}</span></p>
-                <div className="text-[11px] text-sophisticated-gray mt-1">
+                <div className="text-[11px] text-sophisticated-gray mt-1 space-y-1">
                   {order.order_items?.map(item => (
-                    <span key={item.id} className="block">{item.products?.title} (x{item.quantity})</span>
+                    <span key={item.id} className="block font-medium">
+                      {item.products?.title}
+                      {item.size && <span className="text-sophisticated-accent font-bold"> [Tam: {item.size}]</span>}
+                      <span className="text-sophisticated-gray font-normal"> (x{item.quantity})</span>
+                    </span>
                   ))}
                 </div>
                 <p className="mt-2 font-medium">Total: R$ {parseFloat(order.total || 0).toFixed(2)}</p>
@@ -172,17 +180,14 @@ export default function Admin() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-        {/* Formulário Interativo (Cadastro / Edição) */}
+        {/* Formulário Interativo */}
         <div className="bg-white dark:bg-neutral-900 p-6 border border-sophisticated-border">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xs uppercase tracking-widest font-bold text-sophisticated-primary flex items-center gap-1">
               <Plus size={14}/> {editingProductId ? 'Editar Anúncio da Peça' : 'Catalogar Nova Peça'}
             </h2>
             {editingProductId && (
-              <button 
-                onClick={cancelEdit}
-                className="text-red-600 hover:text-red-800 flex items-center gap-1 bg-transparent border-none cursor-pointer font-medium"
-              >
+              <button onClick={cancelEdit} className="text-red-600 hover:text-red-800 flex items-center gap-1 bg-transparent border-none cursor-pointer font-medium">
                 <X size={14}/> Cancelar Edição
               </button>
             )}
@@ -209,9 +214,15 @@ export default function Admin() {
                 <option value="Blusas">Blusas</option>
               </select>
             </div>
-            <div>
-              <label className="block mb-1">Estoque</label>
-              <input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} className="w-full border p-2 bg-transparent focus:outline-none" required />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block mb-1">Estoque Global</label>
+                <input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} className="w-full border p-2 bg-transparent focus:outline-none" required />
+              </div>
+              <div>
+                <label className="block mb-1">Grade de Tamanhos (Separados por vírgula)</label>
+                <input type="text" value={form.sizes} onChange={e => setForm({...form, sizes: e.target.value})} className="w-full border p-2 bg-transparent focus:outline-none" placeholder="Ex: P, M, G, GG" required />
+              </div>
             </div>
             <div>
               <label className="block mb-1">Links das Fotos (Separadas por vírgula)</label>
@@ -237,7 +248,7 @@ export default function Admin() {
           </form>
         </div>
 
-        {/* Grade de Itens Ativos com Ação de Editar */}
+        {/* Grade de Itens Ativos */}
         <div className="bg-white dark:bg-neutral-900 p-6 border border-sophisticated-border h-[515px] overflow-y-auto">
           <h2 className="text-xs uppercase tracking-widest font-bold mb-4">Grade de Itens Ativos</h2>
           <div className="space-y-3">
@@ -246,14 +257,10 @@ export default function Admin() {
                 <div>
                   <p className="font-medium text-sophisticated-text uppercase">{p.title}</p>
                   <p className="text-[10px] text-sophisticated-gray">R$ {parseFloat(p.price || 0).toFixed(2)}</p>
+                  <p className="text-[9px] text-sophisticated-accent tracking-wider uppercase">Tamanhos: {Array.isArray(p.sizes) ? p.sizes.join(', ') : 'Nenhum'}</p>
                 </div>
                 <div className="flex items-center gap-4">
-                  {/* 🛠️ BOTÃO EDITAR ADICIONADO AQUI */}
-                  <button 
-                    onClick={() => startEdit(p)}
-                    className="p-1 text-sophisticated-gray hover:text-sophisticated-primary dark:hover:text-sophisticated-accent transition bg-transparent border-none cursor-pointer flex items-center gap-1"
-                    title="Editar Anúncio"
-                  >
+                  <button onClick={() => startEdit(p)} className="p-1 text-sophisticated-gray hover:text-sophisticated-primary dark:hover:text-sophisticated-accent transition bg-transparent border-none cursor-pointer flex items-center gap-1" title="Editar Anúncio">
                     <Edit2 size={13} /> <span className="text-[10px] uppercase tracking-wider hidden sm:inline">Editar</span>
                   </button>
                   <div className="text-right min-w-[85px]">
