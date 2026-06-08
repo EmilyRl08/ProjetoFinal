@@ -122,7 +122,7 @@ export default function Admin() {
   return (
     <div className="space-y-12 text-xs page-transition">
       {/* Relatório de Vendas */}
-      <div className="bg-neutral-900 text-white p-6 rounded-sm">
+      <div className="bg-white dark:bg-neutral-900 text-sophisticated-text dark:text-white p-6 border border-sophisticated-border rounded-sm shadow-xs">
         <h2 className="text-sm uppercase tracking-[0.2em] font-medium flex items-center gap-2 mb-6 text-sophisticated-accent"><BarChart2 size={16}/> Relatório de Vendas & Desempenho</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="border-l border-sophisticated-accent pl-4">
